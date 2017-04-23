@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeapMotion</title>
+    <script type="text/javascript" src="/js/jquery/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="/js/jquery/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="/js/bootstrap.js"></script>
+    <script type="text/javascript" src="/js/leap/leap-0.6.2.js"></script>
+    <script type="text/javascript" src="/js/leap/leap-plugins-0.1.7.js"></script>
+    <link rel="stylesheet" href="css/bootstrap.css" />
+    <link rel="stylesheet" href="css/css.css" />
+</head>
+<body>
+
+<div id="output"></div>
+
+<script type="text/javascript">
+
+    $(document).ready(function() {
+
+        $.fn.animateRotate = function(angle, duration, easing, complete) {
+            return this.each(function() {
+                var $elem = $(this);
+
+                $({deg: 0}).animate({deg: angle}, {
+                    duration: duration,
+                    easing: easing,
+                    step: function(now) {
+                        $elem.css({
+                            transform: 'rotate(' + now + 'deg)'
+                        });
+                    },
+                    complete: complete || $.noop
+                });
+            });
+        };
+
+        // direzione dello swipe
+        function getSwipeDirection(gesture) {
+            var isHorizontal = Math.abs(gesture.direction[0]) > Math.abs(gesture.direction[1]);
+            if (isHorizontal) {
+                if (gesture.direction[0] > 0) {
+                    return "right";
+                } else {
+                    return "left";
+                }
+            } else { //vertical
+                if (gesture.direction[1] > 0) {
+                    return "up";
+                } else {
+                    return "down";
+                }
+            }
+        }
+
+        var animating = false;
+
+        var Cat = function() {
+
+            var cat = this;
+
+            var img = $('<img />', {
+                src: '/images/logo.png',
+                css: {
+                    position: 'absolute'
+                }
+            }).load(function() {
+
+                cat.move([window.innerWidth / 2, window.innerHeight / 2]);
+                $('body').append(img);
+            });
+
+            // animazione di rotazione
+            cat.rotateAnimation = function(direction) {
+                deg = (direction == 'left') ? -5000 : 5000;
+                animating = true;
+                $(img).animateRotate(deg, 1000, 'easeOutCirc', function() {
+                    animating = false;
+                });
+            };
+
+            // sposta
+            cat.move = function(position) {
+
+                $(img).css({
+                    left: position[0] - $(img).width() / 2 + 'px',
+                    top: position[1] - $(img).height() / 2 + 'px'
+                });
+
+            };
+
+            // trasforma
+            cat.transform = function(roll, yaw, pitch) {
+
+                $(img).css({
+                    transform: 'rotateZ(' + -roll * 1.5 + 'rad) rotateY(' + -yaw * 1.5 + 'rad) rotateX(' + pitch * 3 + 'rad)'
+                });
+
+            };
+
+            // ingrandisce
+            cat.enlarge = function(scaleFactor) {
+
+                $(img).width(scaleFactor * 200 + 'px');
+            };
+
+        };
+
+        var cat = new Cat();
+
+        var firstFrame = null;
+        var previousFrame = null;
+
+        Leap.loop({enableGestures: true}, function(frame) {
+
+
+                // primo frame
+                if (firstFrame == null) {
+                    firstFrame = frame;
+                }
+
+                // frame precedente
+                if (previousFrame == null) {
+                    previousFrame = frame;
+                }
+
+                //$('#output').html('Frame: ' + frame.id);
+
+                // gestures
+                if (frame.gestures.length > 0) {
+                    frame.gestures.forEach(function(gesture) {
+
+                        if (gesture.type == 'swipe') {
+
+                            var direction = getSwipeDirection(gesture);
+                            cat.rotateAnimation(direction);
+                        }
+                    });
+                }
+                // movimenti mano
+                else if (!animating) {
+
+                    if (frame.hands.length == 1) {
+
+                        var hand = frame.hands[0];
+
+                        cat.move(hand.screenPosition());
+                        cat.transform(hand.roll(), hand.yaw(), hand.pitch());
+                    }
+                    else if (frame.hands.length > 1) {
+
+                        cat.enlarge(frame.scaleFactor(firstFrame));
+                    }
+
+                }
+
+            previousFrame = frame;
+
+        }).use('screenPosition', {scale: 0.25});
+
+        // This allows us to move the cat even whilst in an iFrame.
+        //Leap.loopController.setBackground(true);
+
+    });
+
+</script>
+
+</body>
+</html>
